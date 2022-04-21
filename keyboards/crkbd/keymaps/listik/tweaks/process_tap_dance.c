@@ -22,7 +22,7 @@ uint8_t get_oneshot_mods(void);
 #endif
 
 static uint16_t last_td;
-static int16_t  highest_td = -1;
+static int8_t   highest_td = -1;
 static uint16_t interruption_first_td = 0;
 static uint16_t interruption_second_td = 0;
 static uint16_t last_td_release = 0;
@@ -46,8 +46,6 @@ void qk_tap_dance_pair_finished(qk_tap_dance_state_t *state, void *user_data) {
 
 void qk_tap_dance_pair_reset(qk_tap_dance_state_t *state, void *user_data) {
     qk_tap_dance_pair_t *pair = (qk_tap_dance_pair_t *)user_data;
-
-    wait_ms(TAP_CODE_DELAY);
     if (state->count == 1) {
         unregister_code16(pair->kc1);
     } else if (state->count == 2) {
@@ -74,24 +72,25 @@ void qk_tap_dance_dual_role_finished(qk_tap_dance_state_t *state, void *user_dat
 
 void qk_tap_dance_dual_role_reset(qk_tap_dance_state_t *state, void *user_data) {
     qk_tap_dance_dual_role_t *pair = (qk_tap_dance_dual_role_t *)user_data;
-
     if (state->count == 1) {
-        wait_ms(TAP_CODE_DELAY);
         unregister_code16(pair->kc);
     }
 }
 
 static inline void _process_tap_dance_action_fn(qk_tap_dance_state_t *state, void *user_data, qk_tap_dance_user_fn_t fn) {
     if (fn) {
+        //uprintf("fn\n");
         fn(state, user_data);
     }
 }
 
 static inline void process_tap_dance_action_on_each_tap(qk_tap_dance_action_t *action) {
+    //uprintf("action each\n");
     _process_tap_dance_action_fn(&action->state, action->user_data, action->fn.on_each_tap);
 }
 
 static inline void process_tap_dance_action_on_dance_finished(qk_tap_dance_action_t *action) {
+    //uprintf("action finish\n");
     if (action->state.finished) return;
     action->state.finished = true;
     add_mods(action->state.oneshot_mods);
@@ -247,28 +246,6 @@ void matrix_scan_tap_dance() {
         }
         if (action->state.count && timer_elapsed(action->state.timer) > tap_user_defined) {
             //uprintf("scan %d \n", action->state.keycode);
-            process_tap_dance_action_on_dance_finished(action);
-            reset_tap_dance(&action->state);
-        }
-    }
-}
-
-void tap_dance_task() {
-    if (highest_td == -1) return;
-    uint16_t tap_user_defined;
-
-    for (uint8_t i = 0; i <= highest_td; i++) {
-        qk_tap_dance_action_t *action = &tap_dance_actions[i];
-        if (action->custom_tapping_term > 0) {
-            tap_user_defined = action->custom_tapping_term;
-        } else {
-#ifdef TAPPING_TERM_PER_KEY
-            tap_user_defined = get_tapping_term(action->state.keycode, &(keyrecord_t){});
-#else
-            tap_user_defined = TAPPING_TERM;
-#endif
-        }
-        if (action->state.count && timer_elapsed(action->state.timer) > tap_user_defined) {
             process_tap_dance_action_on_dance_finished(action);
             reset_tap_dance(&action->state);
         }
